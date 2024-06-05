@@ -1,9 +1,9 @@
 #+OPTIONS: broken-links:t
-* Tetramax Android workshop
+* Music Player Android workshop
 ** Introduction 
 This document gives a step-by-step instructions on implementing a simple music player as an Android service.
 ** Slides
-Accompanying slides can be found [[slides/Tetramax_AndroidBasics.pdf][here.]]
+Accompanying slides can be found [[slides/AndroidBasics.pdf][here.]]
 
 ** Assignments
 *** Start and stop playback when clicking the =PLAY= and =STOP= buttons
@@ -120,14 +120,14 @@ To the start playback, first start the service and then press the play button. N
        
 However, there is still a small issue: if you start the playback (start the service and then the playback) and rotate the screen, the music will continue to play, however, the start and stop button will stop working. Moreover, if you look at the output of the =Logcat= system, you'll see a warning about a memory leak. Something similar to this:
 #+BEGIN_SRC text
-E/ActivityThread: Activity tetramax.android.MainActivity has leaked ServiceConnection tetramax.android.MainActivity$1@4f60225 that was originally bound here
-android.app.ServiceConnectionLeaked: Activity tetramax.android.MainActivity has leaked ServiceConnection tetramax.android.MainActivity$1@4f60225 that was originally bound here
+E/ActivityThread: Activity si.uni_lj.fri.musicplayer.MainActivity has leaked ServiceConnection si.uni_lj.fri.musicplayer.MainActivity$1@4f60225 that was originally bound here
+android.app.ServiceConnectionLeaked: Activity si.uni_lj.fri.musicplayer.MainActivity has leaked ServiceConnection si.uni_lj.fri.musicplayer.MainActivity$1@4f60225 that was originally bound here
 at android.app.LoadedApk$ServiceDispatcher.<init>(LoadedApk.java:1610)
 at android.app.LoadedApk.getServiceDispatcher(LoadedApk.java:1502)
 at android.app.ContextImpl.bindServiceCommon(ContextImpl.java:1659)
 at android.app.ContextImpl.bindService(ContextImpl.java:1612)
 at android.content.ContextWrapper.bindService(ContextWrapper.java:698)
-at tetramax.android.MainActivity$4.onClick(MainActivity.java:69)
+at si.uni_lj.fri.musicplayer.MainActivity$4.onClick(MainActivity.java:69)
 at android.view.View.performClick(View.java:6597)
 at android.view.View.performClickInternal(View.java:6574)
 at android.view.View.access$3100(View.java:778)
@@ -255,3 +255,5 @@ The purpose of this workshop was to demonstrate the use of a few Android compone
 - Implement the service as a [[https://developer.android.com/guide/components/services#Foreground][foreground service.]] A foreground services shows a notification and quick controls that allow user actions. For instance, controls for stopping and starting the playback.
 ** Attribution
 All MP3 songs used in this project were obtained from [[https://www.bensound.com/royalty-free-music][bensound.com]] under creative commons license.
+
+This content was originally developed by David Jelenc and Veljko Pejovic for the Tetramax Android Progrmming workshop held in Ljubljana, Slovenia in April 2021.
