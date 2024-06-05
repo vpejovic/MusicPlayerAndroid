@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Lancaster Music Player</string>
+    <string name="about_text">This app was developed during the Android Programming Workshop.</string>
+</resources>
