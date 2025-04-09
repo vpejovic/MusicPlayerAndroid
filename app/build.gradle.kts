@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "si.uni_lj.fri.musicplayer"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "si.uni_lj.fri.musicplayer"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
