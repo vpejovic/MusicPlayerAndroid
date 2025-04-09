@@ -9,14 +9,13 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import si.uni_lj.fri.musicplayer.databinding.ActivityMainBinding
 import java.io.IOException
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
-    private var musicInfoTextView: TextView? = null
-    private var startServiceButton: Button? = null
-    private var stopServiceButton: Button? = null
-    private var aboutButton: Button? = null
+
+    private lateinit var binding: ActivityMainBinding
 
     private var player: MediaPlayer? = null
 
@@ -24,28 +23,25 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Log.i(TAG, "onCreate()")
 
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        val view = binding.root
+        setContentView(view)
 
-        musicInfoTextView = findViewById(R.id.musicInfoTextView)
-        startServiceButton = findViewById(R.id.startServiceButton)
-        stopServiceButton = findViewById(R.id.stopServiceButton)
-        aboutButton = findViewById(R.id.aboutButton)
-
-        startServiceButton?.setOnClickListener {
+        binding.startServiceButton.setOnClickListener {
             Toast.makeText(
                 applicationContext,
                 "Start service button will be used in the service implementation.",
                 Toast.LENGTH_SHORT
             ).show()
         }
-        stopServiceButton?.setOnClickListener {
+        binding.stopServiceButton.setOnClickListener {
             Toast.makeText(
                 applicationContext,
                 "Stop service button will be used in the service implementation.",
                 Toast.LENGTH_SHORT
             ).show()
         }
-        aboutButton?.setOnClickListener {
+        binding.aboutButton.setOnClickListener {
             startActivity(
                 Intent(
                     this@MainActivity,
@@ -87,7 +83,7 @@ class MainActivity : AppCompatActivity() {
                 it.start()
 
                 // display song info
-                musicInfoTextView?.text = this
+                binding.musicInfoTextView.text = this
                 Log.i(TAG, "Playing song $this")
             }
         }
@@ -105,7 +101,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // display song info
-        musicInfoTextView?.text = ""
+        binding.musicInfoTextView.text = ""
     }
 
     /**
