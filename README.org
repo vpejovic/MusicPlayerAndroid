@@ -9,9 +9,8 @@ Accompanying slides can be found [[slides/AndroidKotlin.pdf][here.]]
 *** Start and stop playback when clicking the =PLAY= and =STOP= buttons
 Let's start (and stop) the playback when the user clicks on the appropriate buttons.
 
-  - In =MainActivity=, define member variables =playButton= and =stopButton= (of class =Button=, similar to =startServiceButton= and =stopServiceButton=).
-  - In =MainActivity.onCreate()=, link =playButton= and =stopButton= to the actual buttons defined in XML: use =findViewById()= to create the association.
-  - Add behavior to these buttons by providing implementations of =View.OnClickListener=. These implementations should simply call functions =play()= and =stop()=. (Hint, look at the code that is used to add behavior to =startServiceButton= and =stopServiceButton=.)
+  - In =MainActivity=, similarly to the way this is done with =startServiceButton= and =stopServiceButton=, define on click behaviour for =playButton= and =stopButton=.
+  - These implementations should simply call functions =play()= and =stop()=. (Hint, look at the code that is used to add behavior to =startServiceButton= and =stopServiceButton=.)
 
     Notice that while the application works, it behaves unpredictably. (The playback stops when the users rotates the phone, closes the screen, or switches to another application; you may need to do these actions multiple times, before the playback stops, but it will stop eventually.)
 
@@ -27,7 +26,7 @@ Now the playback should stop on all instances mentioned above.
 *** Implement the music player as a service
 However, we want the playback to continue even if the user switches to another applications, rotates or dims the screen (presses the power button). To that end, we are going to implement the player as a service.
 **** Add a service
-- Go to menu and click through =File > New > Service > Service=.
+- Right click on the =app= module and select = New > Service > Service=.
 - As the name write =MusicService=.
 - Remove the tick in the =Exported= option; we do not want that our music service is instantiated by other android applications.
 **** Move the player code into service
@@ -101,14 +100,14 @@ private val connection: ServiceConnection = object : ServiceConnection {
 **** Add behaviors to buttons: =play=, =stop=, =startService=, and =stopService=
 Finally, we now have to change the behavior of the buttons that start and stop the service and start and stop the playback. Change the contents inside the =MainActivity.onCreate()= to contain the following snippets. Note how all service calls are guarded will =null= checks using the =?= operator; if the =service= is =null= certain actions should not be called because they would raise =NullPointerException=.
 #+BEGIN_SRC java
-playButton?.setOnClickListener { service?.play() }
-stopButton?.setOnClickListener { service?.stop() }
-startServiceButton?.setOnClickListener {
+binding.playButton.setOnClickListener { service?.play() }
+binding.stopButton.setOnClickListener { service?.stop() }
+binding.startServiceButton.setOnClickListener {
     val intent = Intent(this@MainActivity, MusicService::class.java)
     startService(intent)
     bindService(intent, connection, BIND_AUTO_CREATE)
 }
-stopServiceButton?.setOnClickListener {
+binding.stopServiceButton.setOnClickListener {
     service?.let {
         unbindService(connection)
         service = null
@@ -248,12 +247,106 @@ override fun onStop() {
 
 Notice that now whenever you start the playback, the name of the song is displayed in the =TextView= in the middle of the screen. When the playback is stopped, the song name disappears.
 
-However, there are a few bugs left. For instance, if you start the playback and rotate the screen, the song name goes away. Or if you start the playback and terminate the service directly by pressing the stop service button, the song name remains. Fixing these two bugs is left as an exercise on your own.
-** Expansion ideas
-The purpose of this workshop was to demonstrate the use of a few Android components, namely activities, services, intents and broadcasts. To that end, the code was kept simple. To make this music player more practical, you may, on your own, try to implement a few additional features. For instance:
-- Display the playback progress: show the amount of time the song has been playing. One way of implementing this is to add a =Timer= instance to =MusicService= that, at regular intervals, sends broadcasts containing information about the current playback.
-- Implement the service as a [[https://developer.android.com/guide/components/services#Foreground][foreground service.]] A foreground services shows a notification and quick controls that allow user actions. For instance, controls for stopping and starting the playback.
+However, there are a few bugs left. For instance, if you start the playback and rotate the screen, the song name goes away. Or if you start the playback and terminate the service directly by pressing the stop service button, the song name remains. 
+
+To fix the first issue, we have to ensure that when the UI is redrawn (e.g. after an Activity is recreated after a rotation), we get the song name directly from the service. Put the follwing line in =onServiceConnected= :
+#+BEGIN_SRC java
+binding.musicInfoTextView.text = this@MainActivity.service?.song
+#+END_SRC
+
+To fix the second issue, we have to manually clear the song name once the service is stopped. The following code should go at the end of the =stopServiceButton= onClick callback: 
+#+BEGIN_SRC java
+binding.musicInfoTextView.text = ""
+#+END_SRC
+
+*** Display playback progress
+Next to the track title, we want to show the progress of the playback in minutes and seconds. A TextView =songProgressTextView= is already present in the layout, yet is, by default, hidden. Go to the layout and delete the line =android:visibility="invisible"= from the view. 
+
+The =MediaPlayer= object has a property =currentPosition= which gives us the progress time in milliseconds. We will update =songProgressTextView= every second, to reflect the actual time that has passed since the song started playing. For repeated tasks that are executed with a short period and do not need to be executed when the app is in the background, a =Handler= + =Runnable= is an appropriate solution. The =Runnable= will define a task we want to execute, while the =Handler= will ensure the task is exectued with a given periodicity. 
+
+In =MainActivity= we first define a member variable =handler=:
+#+BEGIN_SRC java
+private val handler = android.os.Handler(Looper.getMainLooper())
+#+END_SRC
+
+Then, we will instantiate an object that implements =Runnable=, queries the current playback position, and shows the results in =songProgressTextView=:
+#+BEGIN_SRC java
+private val updateTimeRunnable = object : Runnable {
+  override fun run() {
+    service?.player?.let {
+      if (it.isPlaying) {
+        val elapsed = it.currentPosition / 1000
+        val minutes = elapsed / 60
+        val seconds = elapsed % 60
+        binding.songProgressTextView.text = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+      }
+    }
+    handler.postDelayed(this, 1000)
+  }
+}
+#+END_SRC
+
+This has to be executed every second when the UI is shown to the user and =MainActivity= is bound to =MusicService=. Thus, in =onServiceConnected= add:
+#+BEGIN_SRC java
+handler.post(updateTimeRunnable)
+#+END_SRC
+
+Finally, we should stop updating the UI when we unbind from the service. We unbind from the service in =onStop= and in =stopServiceButton.setOnClickListener=. Add the following line to these two:
+#+BEGIN_SRC java
+handler.removeCallbacks(updateTimeRunnable)
+#+END_SRC
+In addition, set the =songProgressTextView.text= to ="00:00" in =stopServiceButton.setOnClickListener.
+
+*** Convert Service to Foreground Service
+Our service is now playing music even if the app is not actively used by the user. However, there are two issues with the current implementation. First, any background service can be killed the OS at an arbitrary time to preserve the device's resources. Second, once the app is not actively used, the user does not have readily available information on which app is playing the music, which song is being played, etc. To fix this, we will convert our service to a foreground service. Such services in Android are used for long-running tasks and are less likely to be killed by the OS. In addition, such services should show a notification in a notification bar, thus the user is well aware of which services are running. 
+
+First, change the service starting code in =MainActivity= to:
+#+BEGIN_SRC java
+startForegroundService
+#+END_SRC
+
+We will now define the notification that will be shown when the service is playing music. For this we first have to create the notification channel. In =MusicService= add the following code:
+#+BEGIN_SRC java
+private fun createNotificationChannel() {
+  if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+    val channel = NotificationChannel(
+      "music_channel",
+      "Music Playback",
+      NotificationManager.IMPORTANCE_LOW
+      )
+    val manager = getSystemService(NotificationManager::class.java)
+    manager?.createNotificationChannel(channel)
+  }
+}
+#+END_SRC
+
+Next, create another method in =MusicService= that will actually move the service to the foreground and show the notification in the notification bar:
+#+BEGIN_SRC java
+private fun startForegroundService() {
+  createNotificationChannel()
+  
+  val intent = Intent(this, MainActivity::class.java)
+  val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+
+  val notification = NotificationCompat.Builder(this, "music_channel")
+    .setContentTitle("Music Player")
+    .setContentText("Playing: $song")
+    .setSmallIcon(android.R.drawable.ic_media_play)
+    .setPriority(NotificationCompat.PRIORITY_LOW)
+    .setContentIntent(pendingIntent)
+    .build()
+
+  startForeground(1, notification)
+}
+#+END_SRC
+
+When to call this method? One appropriate moment could be when a song starts playing. Thus, put =startForegroundService()= at the end of =getFiles().random().apply { }=.
+
+Finally, we need to modify =AndroidManifest.xml= to refelect the fact that our service will be a foreground service. Add =android:foregroundServiceType= property to =<service>= tag in the manifest. Set it to the right type (note: types can be found at [[https://developer.android.com/develop/background-work/services/fgs/service-types]]), which in our case is =mediaPlayback=. In addition, the manifest should list the following permissions that your app needs =android.permission.FOREGROUND_SERVICE=, =android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK=, and =android.permission.POST_NOTIFICATIONS=. 
+
+That's it - before testing your code, don't forget to handle permission asking for =android.permission.POST_NOTIFICATIONS=! 
+
 ** Attribution
 All MP3 songs used in this project were obtained from [[https://www.bensound.com/royalty-free-music][bensound.com]] under creative commons license.
 
-This content was originally developed by David Jelenc and Veljko Pejovic for the Tetramax Android Progrmming workshop held in Ljubljana, Slovenia in April 2021.
+This content is based on the assignment originally developed by David Jelenc and Veljko Pejovic for the Tetramax Android Progrmming workshop held in Ljubljana, Slovenia in April 2021.
