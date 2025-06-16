@@ -19,14 +19,14 @@ The reason for such behavior is that when you rotate the screen, your =MainActiv
 
   - Override the implementation of =MainActivity.onPause()=,
   - manually stop the playback by calling =stop()=,
-  - and release the player instance by calling =player.release()=.
+  - and release the player instance by calling =player?.release()=.
 
 Now the playback should stop on all instances mentioned above.
 
 *** Implement the music player as a service
 However, we want the playback to continue even if the user switches to another applications, rotates or dims the screen (presses the power button). To that end, we are going to implement the player as a service.
 **** Add a service
-- Right click on the =app= module and select = New > Service > Service=.
+- Right click on the =app= module and select =New>Service>Service=.
 - As the name write =MusicService=.
 - Remove the tick in the =Exported= option; we do not want that our music service is instantiated by other android applications.
 **** Move the player code into service
@@ -53,7 +53,7 @@ startService(intent)
 stopService(Intent(this@MainActivity, MusicService::class.java))
 #+END_SRC
 
-If you now press the =startServiceButton=, notice how the playback starts and it does not stop if you rotate the screen, switch to another application, or dim the screen. The playback stops only if you stop the service with the =stopServiceButton= or remove the application from the application drawer.
+If you now press the =startServiceButton=, notice how the playback starts and it does not stop if you rotate the screen, switch to another application, or dim the screen. The playback stops only if you stop the service with the =stopServiceButton= or, after a while, if you remove the application from the application drawer.
 *** Bind activity to the service
 While running the playback in a service is an improvement, the current solution is a bit awkward. In particular, we have very little control over the service. For instance, the playback starts as the service is created, and the only way to stop it, is to stop the service. It would be much better if we could have more fine-grained control over playback. To that end, we will *bind* to the service from the activity. This requires making changes to both =MusicService= and =MainActivity=.
 **** Make service return a =Binder= instance
@@ -70,7 +70,7 @@ private val binder = LocalBinder(this)
 ***** Implement =onBind= to return the service instance
 Next, make =MusicService.onBind()= return the binder instance whenever we bind to the service.
 #+BEGIN_SRC java
-override fun onBind(intent: Intent?): IBinder = binder
+override fun onBind(intent: Intent): IBinder = binder
 #+END_SRC
 ***** Update the =MusicService.onStartCommand()=
 Finally, to stop the automatic playback upon service creation, remove the call to =play()= inside =MusicService.onStartCommand()=.
@@ -117,28 +117,8 @@ binding.stopServiceButton.setOnClickListener {
 #+END_SRC
 To the start playback, first start the service and then press the play button. Now, you can stop the playback with stop and restart it by pressing the play again. Note that the service was not destroyed and created during this start/stop/start cycle, but you directly controlled the =MediaPlayer= instance by calling the =service.start()= and =service.stop()= methods.
 
-However, there is still a small issue: if you start the playback (start the service and then the playback) and rotate the screen, the music will continue to play, however, the start and stop button will stop working. Moreover, if you look at the output of the =Logcat= system, you'll see a warning about a memory leak. Something similar to this:
-#+BEGIN_SRC text
-E/ActivityThread: Activity si.uni_lj.fri.musicplayer.MainActivity has leaked ServiceConnection si.uni_lj.fri.musicplayer.MainActivity$1@4f60225 that was originally bound here
-android.app.ServiceConnectionLeaked: Activity si.uni_lj.fri.musicplayer.MainActivity has leaked ServiceConnection si.uni_lj.fri.musicplayer.MainActivity$1@4f60225 that was originally bound here
-at android.app.LoadedApk$ServiceDispatcher.<init>(LoadedApk.java:1610)
-at android.app.LoadedApk.getServiceDispatcher(LoadedApk.java:1502)
-at android.app.ContextImpl.bindServiceCommon(ContextImpl.java:1659)
-at android.app.ContextImpl.bindService(ContextImpl.java:1612)
-at android.content.ContextWrapper.bindService(ContextWrapper.java:698)
-at si.uni_lj.fri.musicplayer.MainActivity$4.onClick(MainActivity.java:69)
-at android.view.View.performClick(View.java:6597)
-at android.view.View.performClickInternal(View.java:6574)
-at android.view.View.access$3100(View.java:778)
-at android.view.View$PerformClick.run(View.java:25885)
-at android.os.Handler.handleCallback(Handler.java:873)
-at android.os.Handler.dispatchMessage(Handler.java:99)
-at android.os.Looper.loop(Looper.java:193)
-at android.app.ActivityThread.main(ActivityThread.java:6669)
-at java.lang.reflect.Method.invoke(Native Method)
-at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:493)
-at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:858)
-#+END_SRC
+However, there is still a small issue: if you start the playback (start the service and then the playback) and rotate the screen, the music will continue to play, however, the start and stop button will stop working. 
+
 **** Unbind when activity gets destroyed and bind on start if the service is already running
 The issue above is caused by an Android configuration change. When you rotate the screen, the activity and all of its member variables get destroyed and then recreated with their default values. So when you rotate the screen, the =service= instance in the newly created =MainActivity= is set to =null= and the binding to the service is lost; the existing button references point to object that no longer exist.
 
@@ -176,7 +156,7 @@ private fun isServiceRunning(): Boolean =
         .any { it.service.className == MusicService::class.java.canonicalName }
 #+END_SRC
 
-Doing this fixes both the memory leak and the broken start and play buttons.
+Doing this fixes the broken start and play buttons.
 
 At this stage, we are only missing the communication between the service and the activity. Right now we can control the service from the activity (by calling the methods on the =service= instance), but there are cases when the service needs to send a message to the activity on itself. For instance, to tell the name of the song that is playing, or to signal how far the current song has been played.
 *** Send the name of the song with a local broadcast
@@ -211,7 +191,7 @@ Finally, we have to subscribe to these broadcasts in =MainActivity=. But first w
 #+BEGIN_SRC java
 private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
-        musicInfoTextView?.text = intent?.getStringExtra("song")
+        binding.musicInfoTextView.text = intent?.getStringExtra("song")
     }
 }
 #+END_SRC
@@ -295,7 +275,7 @@ Finally, we should stop updating the UI when we unbind from the service. We unbi
 #+BEGIN_SRC java
 handler.removeCallbacks(updateTimeRunnable)
 #+END_SRC
-In addition, set the =songProgressTextView.text= to ="00:00" in =stopServiceButton.setOnClickListener.
+In addition, set the =songProgressTextView.text= to "00:00" in =stopServiceButton.setOnClickListener=.
 
 *** Convert Service to Foreground Service
 Our service is now playing music even if the app is not actively used by the user. However, there are two issues with the current implementation. First, any background service can be killed the OS at an arbitrary time to preserve the device's resources. Second, once the app is not actively used, the user does not have readily available information on which app is playing the music, which song is being played, etc. To fix this, we will convert our service to a foreground service. Such services in Android are used for long-running tasks and are less likely to be killed by the OS. In addition, such services should show a notification in a notification bar, thus the user is well aware of which services are running.
