@@ -240,7 +240,7 @@ binding.musicInfoTextView.text = ""
 #+END_SRC
 
 *** Display playback progress
-Next to the track title, we want to show the progress of the playback in minutes and seconds. A TextView =songProgressTextView= is already present in the layout, yet is, by default, hidden. Go to the layout and delete the line =android:visibility="invisible"= from the view.
+Next to the track title, we want to show the progress of the playback in minutes and seconds. A TextView =songProgressTextView= is already present in the layout, yet is, by default, hidden. Go to the layout and delete the line setting =android:visibility= to "invisible" from the view.
 
 The =MediaPlayer= object has a property =currentPosition= which gives us the progress time in milliseconds. We will update =songProgressTextView= every second, to reflect the actual time that has passed since the song started playing. For repeated tasks that are executed with a short period and do not need to be executed when the app is in the background, a =Handler= + =Runnable= is an appropriate solution. The =Runnable= will define a task we want to execute, while the =Handler= will ensure the task is exectued with a given periodicity.
 
