@@ -3,7 +3,7 @@
 ** Introduction 
 This document gives a step-by-step instructions on implementing a simple music player as an Android service.
 ** Slides
-Accompanying slides can be found [[AndroidKotlin.pdf][here.]]
+Accompanying slides can be found [[slides/AndroidKotlin.pdf][here.]]
 
 ** Assignments
 *** Start and stop playback when clicking the =PLAY= and =STOP= buttons
