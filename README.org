@@ -322,9 +322,78 @@ private fun startForegroundService() {
 
 When to call this method? One appropriate moment could be when a song starts playing. Thus, put =startForegroundService()= at the end of =getFiles().random().apply { }=.
 
-Finally, we need to modify =AndroidManifest.xml= to refelect the fact that our service will be a foreground service. Add =android:foregroundServiceType= property to =<service>= tag in the manifest. Set it to the right type (note: types can be found at [[https://developer.android.com/develop/background-work/services/fgs/service-types]]), which in our case is =mediaPlayback=. In addition, the manifest should list the following permissions that your app needs =android.permission.FOREGROUND_SERVICE=, =android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK=, and =android.permission.POST_NOTIFICATIONS=.
+We also need to modify =AndroidManifest.xml= to refelect the fact that our service will be a foreground service. Add =android:foregroundServiceType= property to =<service>= tag in the manifest. Set it to the right type (note: types can be found at [[https://developer.android.com/develop/background-work/services/fgs/service-types]]), which in our case is =mediaPlayback=. In addition, the manifest should list the following permissions that your app needs =android.permission.FOREGROUND_SERVICE=, =android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK=, and =android.permission.POST_NOTIFICATIONS=.
 
-That's it - before testing your code, don't forget to handle permission asking for =android.permission.POST_NOTIFICATIONS=!
+Posting notifications requires an explicit permission from a user. We should identify a suitable moment for asking for the permission. One such moment is when a user wishes to start the service. Thus, we will refactor the code so that instead of immediately starting the service when a user clicks on the button, we first ask for the permission and then start the service, once the permission is given. 
+
+Move the code for starting the service to a new function called =startMusicService=. In addition, create a new function for permission querying:
+
+#+BEGIN_SRC java
+private fun setupPermissions() {
+        val permission = ContextCompat
+            .checkSelfPermission(this,
+                Manifest.permission.POST_NOTIFICATIONS)
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "permission not granted")
+
+            if (ActivityCompat.shouldShowRequestPermissionRationale(
+                    this,
+                    Manifest.permission.RECORD_AUDIO
+                )) {
+                val builder = AlertDialog.Builder(this)
+                with(builder){
+                    setMessage("Notifications are necessary for the player to work properly")
+                    setTitle("Necessary permission")
+                    setPositiveButton("OK"){
+                            p0, p1 -> makeRequest()
+                    }
+                }
+                val dialog = builder.create()
+                dialog.show()
+            } else{
+                makeRequest()
+            }
+        } else {
+            startMusicService()
+        }
+    }
+#+END_SRC
+
+The above function first checks if the permission is already given, and, if not, proceeds with asking for the permission. The actual asking for the permission is done in the following function:
+
+#+BEGIN_SRC java
+private fun makeRequest(){
+        ActivityCompat.requestPermissions(this,
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            NOTIF_REQUEST_CODE
+        )
+    }
+#+END_SRC
+
+Finally, the result of querying is asynchronously delivered to the Activity via a callback:
+
+#+BEGIN_SRC java
+override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if(requestCode == NOTIF_REQUEST_CODE){
+            if(grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED){
+                Log.d(TAG, "Permission was denied!")
+            } else {
+                Log.d(TAG, "Permission granted!")
+                startMusicService()
+            }
+        }
+    }
+#+END_SRC
+
+
+That's it - go ahead and test your code!
 
 ** Attribution
 All MP3 songs used in this project were obtained from [[https://www.bensound.com/royalty-free-music][bensound.com]] under creative commons license.
